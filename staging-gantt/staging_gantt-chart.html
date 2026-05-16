@@ -548,7 +548,7 @@ function saveCell(ri, ci, val) {
       if (si !== undefined) {
         const ordered = getOrderedSegs();
         const seg = segments[ordered[si]];
-        if (seg) color = (seg.color || getSegColor(si)) + '22';
+        if (seg) color = (seg.color || getSegColor(si)) + '80';
       }
     }
     rows[ri].cells[ci] = val || color ? { t: val, b: color } : '';
