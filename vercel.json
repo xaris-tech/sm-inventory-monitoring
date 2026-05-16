@@ -1,3 +1,6 @@
 {
-  "rootDirectory": "staging-gantt"
+  "rewrites": [
+    { "source": "/", "destination": "/staging-gantt/staging_gantt-chart.html" },
+    { "source": "/(.*)", "destination": "/staging-gantt/$1" }
+  ]
 }
