@@ -756,7 +756,7 @@ function showRemoveColModal() {
     <div class="modal-row">
       <label>Segment:</label>
       <select id="m-rm-col-seg">
-        ${ordered.map(s => `<option value="${s}">${s} (${segments[s].cols} cols)</option>`).join('')}
+        ${ordered.map(s => `<option value="${s}">${esc(segments[s].label || s)} (${segments[s].cols} cols)</option>`).join('')}
       </select>
     </div>
     <p style="font-size:10px;color:#c62828;">Warning: removes the last column of the selected segment.</p>
@@ -789,7 +789,7 @@ function showAddColModal() {
     <div class="modal-row">
       <label>Segment:</label>
       <select id="m-col-seg">
-        ${ordered.map(s => `<option value="${s}">${s} (${segments[s].cols} cols)</option>`).join('')}
+        ${ordered.map(s => `<option value="${s}">${esc(segments[s].label || s)} (${segments[s].cols} cols)</option>`).join('')}
       </select>
     </div>
   `;
