@@ -542,7 +542,15 @@ function saveCell(ri, ci, val) {
   val = val.trim();
   if (currentText !== val) {
     pushUndo();
-    const color = currentColor || (val && isPainting && document.getElementById('paint-color').value) || '';
+    let color = currentColor;
+    if (val && !color) {
+      const si = getBackgroundSegClass(ci);
+      if (si !== undefined) {
+        const ordered = getOrderedSegs();
+        const seg = segments[ordered[si]];
+        if (seg) color = seg.color || getSegColor(si);
+      }
+    }
     rows[ri].cells[ci] = val || color ? { t: val, b: color } : '';
     render();
     saveToStorage();
