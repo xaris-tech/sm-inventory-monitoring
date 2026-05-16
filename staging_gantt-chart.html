@@ -832,8 +832,14 @@ function showAddSegModal() {
     if (segments[name]) { showToast(name + ' already exists'); return; }
     pushUndo();
     segments[name] = { cols, start, end, label: name, color };
+    let insertIdx = 0;
+    const ordered = getOrderedSegs();
+    for (let s of ordered) {
+      if (s === name) break;
+      insertIdx += segments[s].cols;
+    }
     for (let ri = 0; ri < rows.length; ri++) {
-      for (let c = 0; c < cols; c++) rows[ri].cells.push('');
+      for (let c = 0; c < cols; c++) rows[ri].cells.splice(insertIdx + c, 0, '');
     }
     render();
     saveToStorage();
@@ -849,7 +855,7 @@ function showRemoveSegModal() {
     <div class="modal-row">
       <label>Segment:</label>
       <select id="m-rem-seg">
-        ${allSegs.map(s => `<option value="${s}">${s} (${segments[s].start}-${segments[s].end}, ${segments[s].cols} cols)</option>`).join('')}
+        ${allSegs.map(s => `<option value="${s}">${s} (${segments[s].cols} cols)</option>`).join('')}
       </select>
     </div>
     <p style="font-size:10px;color:#c62828;">Warning: removing a segment deletes its columns from all rows.</p>
