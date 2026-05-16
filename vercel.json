@@ -1,7 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/data", "destination": "/api/data" },
-    { "source": "/api/data/:chart", "destination": "/api/data?chart=:chart" },
-    { "source": "/(.*)", "destination": "/$1" }
+    { "source": "/", "destination": "/staging_gantt-chart.html" }
   ]
 }
