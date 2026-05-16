@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black" />
 <link rel="manifest" href="manifest.json" />
 <link rel="icon" href="icon.svg" type="image/svg+xml" />
-<title>Staging Gant Chart - Revival Pilipinas</title>
+<title>Staging Gantt Chart - Revival Pilipinas</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -217,7 +217,7 @@
 </head>
 <body>
 
-<h1 id="chart-title" class="title-editable" onclick="editTitle()" title="Click to edit title">Staging Gant Chart - Revival Pilipinas</h1>
+<h1 id="chart-title" class="title-editable" onclick="editTitle()" title="Click to edit title">Staging Gantt Chart - Revival Pilipinas</h1>
 <span id="sync-indicator" style="font-size:12px;margin-left:10px;color:#666;vertical-align:middle;"></span>
 
 <div class="controls">
@@ -336,7 +336,7 @@ let paintColor = '';
 let isPainting = false;
 let isErasing = false;
 let paintStarted = false;
-let chartTitle = 'Staging Gant Chart - Revival Pilipinas';
+let chartTitle = 'Staging Gantt Chart - Revival Pilipinas';
 let modalCallback = null;
 let syncStatus = 'local';
 let lastSaved = 0;
@@ -940,7 +940,7 @@ function editTitle() {
 }
 
 function saveTitle(val) {
-  chartTitle = val.trim() || 'Staging Gant Chart - Revival Pilipinas';
+  chartTitle = val.trim() || 'Staging Gantt Chart - Revival Pilipinas';
   const h1 = document.getElementById('chart-title');
   h1.textContent = chartTitle;
   h1.setAttribute('title', 'Click to edit title');
@@ -975,7 +975,7 @@ function loadFromStorage() {
       pushUndo();
       rows = d.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
     segments = d.segments || {};
-    chartTitle = d.chartTitle || 'Staging Gant Chart - Revival Pilipinas';
+    chartTitle = d.chartTitle || 'Staging Gantt Chart - Revival Pilipinas';
     if (d.undoStack && d.undoStack.length) {
       undoStack = d.undoStack;
       redoStack = [];
@@ -1110,7 +1110,7 @@ async function syncFromApi() {
   if (!confirm('Newer data found on server. Reload? Changes since last sync will be lost.')) return;
   rows = remote.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
   segments = remote.segments;
-  chartTitle = remote.chartTitle || 'Staging Gant Chart - Revival Pilipinas';
+  chartTitle = remote.chartTitle || 'Staging Gantt Chart - Revival Pilipinas';
   document.getElementById('chart-title').textContent = chartTitle;
   lastSaved = remote.updatedAt || Date.now();
   render();
@@ -1181,7 +1181,7 @@ function rowDragEnd(e) {
       pushUndo();
       rows = remote.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
       segments = remote.segments;
-      chartTitle = remote.chartTitle || 'Staging Gant Chart - Revival Pilipinas';
+      chartTitle = remote.chartTitle || 'Staging Gantt Chart - Revival Pilipinas';
       document.getElementById('chart-title').textContent = chartTitle;
       lastSaved = remote.updatedAt || Date.now();
       syncStatus = 'synced';
