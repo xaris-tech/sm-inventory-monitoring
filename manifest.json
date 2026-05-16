@@ -1,0 +1,17 @@
+{
+  "name": "Staging Gantt Chart",
+  "short_name": "Gantt",
+  "description": "Production staging gantt chart for event planning",
+  "start_url": "/staging_gantt-chart.html",
+  "display": "standalone",
+  "background_color": "#f0f0f0",
+  "theme_color": "#333333",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

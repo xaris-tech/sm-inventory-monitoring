@@ -1,0 +1,1195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icon.svg" type="image/svg+xml" />
+<title>DAY-0 GANTT CHART</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    background: #f0f0f0;
+    color: #000;
+    padding: 20px;
+    font-size: 12px;
+    margin: 0;
+  }
+  .title-editable { cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .title-editable:hover { background: #e8e8e8; }
+  .title-editable:focus { outline: 2px solid #333; background: #fff; cursor: text; }
+  .controls {
+    max-width: 1500px;
+    margin: 0 auto 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .btn {
+    font-family: inherit;
+    font-size: 11px;
+    padding: 5px 10px;
+    border: 1px solid #999;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .btn:hover { background: #e0e0e0; }
+  .btn.primary { background: #333; color: #fff; border-color: #333; }
+  .btn.primary:hover { background: #555; }
+  .btn.danger { background: #c82333; color: #fff; border-color: #c82333; }
+  .btn.danger:hover { background: #a8202c; }
+  .btn.green { background: #218838; color: #fff; border-color: #218838; }
+  .btn.green:hover { background: #1a6b2c; }
+  .color-picker-wrap {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .color-picker-wrap input[type=color] {
+    width: 28px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid #999;
+    border-radius: 3px;
+    cursor: pointer;
+    background: none;
+  }
+  .paint-indicator {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #999;
+    vertical-align: middle;
+  }
+  body.paint-mode .paint-indicator { border-color: #333; }
+  body.paint-mode .color-picker-wrap input[type=color] { outline: 2px solid #333; }
+  .gantt-wrap {
+    max-width: 1500px;
+    margin: 0 auto;
+    overflow-x: auto;
+    border: 1px solid #000;
+  }
+  .gantt-table {
+    border-collapse: collapse;
+    background: #fff;
+    width: 100%;
+  }
+  .gantt-table th, .gantt-table td {
+    border: 1px solid #000;
+    padding: 0;
+    text-align: center;
+    font-size: 11px;
+    min-width: 36px;
+    height: 28px;
+    position: relative;
+  }
+  .gantt-table th { background: #d8d8d8; font-weight: bold; }
+  .gantt-table td.task-cell { cursor: pointer; font-size: 10px; min-width: 36px; }
+  .gantt-table td.task-cell:hover { filter: brightness(0.92); }
+  .task-input {
+    width: calc(100% - 40px);
+    min-width: 250px;
+    height: 24px;
+    border: none;
+    background: #fff;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    font-weight: bold;
+    color: #000;
+    text-align: left;
+    padding: 0 4px;
+    line-height: 24px;
+    box-sizing: border-box;
+  }
+  .task-input:focus { outline: 2px solid #333; }
+  .small-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 11px;
+    text-align: center;
+    padding: 0;
+  }
+  .small-input:focus { outline: 2px solid #333; outline-offset: -2px; background: #fff; }
+  .cell-input {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #fff;
+    font-family: inherit;
+    font-size: 10px;
+    text-align: center;
+    padding: 0;
+  }
+  .cell-input:focus { outline: 2px solid #333; }
+.delete-row { font-size: 14px; color: #ccc; cursor: pointer; padding: 0 3px; display: none; width: 18px; height: 100%; vertical-align: middle; }
+  tr:hover .delete-row { display: inline; }
+  tr .delete-row { display: none; }
+  tbody tr:hover .delete-row { display: inline; }
+  .delete-row:hover { color: #dc3545; }
+  body.paint-mode { cursor: crosshair; }
+  body.erase-mode { cursor: cell; }
+  body.erase-mode .task-cell { cursor: cell; }
+  .erase-active { background: #6c757d !important; color: #fff !important; border-color: #6c757d !important; }
+  .paint-active { background: #333 !important; color: #fff !important; border-color: #333 !important; }
+  tr.dragging { opacity: 0.4; }
+  tr.drag-over td { border-bottom: 2px solid #333 !important; }
+  .drag-handle { cursor: grab; color: #999; font-size: 14px; margin-right: 4px; user-select: none; }
+  .drag-handle:active { cursor: grabbing; }
+  .color-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    margin-right: 2px;
+    vertical-align: middle;
+  }
+  .loading-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.85); z-index: 9999;
+    align-items: center; justify-content: center; flex-direction: column;
+  }
+  .loading-overlay.active { display: flex; }
+  .loading-spinner {
+    width: 40px; height: 40px; border: 4px solid #ddd;
+    border-top-color: #333; border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { margin-top: 12px; font-size: 14px; color: #333; }
+  @media (max-width: 768px) {
+    body { padding: 8px; font-size: 10px; }
+    .controls { gap: 4px; }
+    .btn { font-size: 10px; padding: 4px 6px; }
+    .gantt-table th, .gantt-table td { min-width: 28px; height: 24px; font-size: 9px; }
+    .gantt-table th[style*="min-width:300px"],
+    .gantt-table td[style*="min-width:300px"] { min-width: 120px; }
+    .task-input { min-width: 100px; font-size: 11px; }
+  }
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(60px);
+    background: #333; color: #fff; padding: 10px 20px; border-radius: 6px;
+    opacity: 0; transition: transform 0.25s, opacity 0.25s;
+    pointer-events: none; z-index: 1000;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .hint { font-size: 10px; color: #666; }
+  .breakdown, .legend {
+    max-width: 1500px; margin: 15px auto; padding: 12px;
+    border: 1px solid #000; background: #fff;
+  }
+  .breakdown-title { font-weight: bold; margin-bottom: 8px; font-size: 13px; }
+  .modal-overlay {
+    display: none;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4); z-index: 500;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.active { display: flex; }
+  .modal-box {
+    background: #fff; padding: 20px; border-radius: 8px;
+    min-width: 320px; max-width: 90vw;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+  }
+  .modal-title { font-weight: bold; margin-bottom: 14px; font-size: 14px; }
+  .modal-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .modal-row label { font-size: 11px; min-width: 70px; flex-shrink: 0; }
+  .modal-row input, .modal-row select, .modal-row textarea {
+    font-family: inherit; font-size: 11px; padding: 5px 7px;
+    border: 1px solid #999; border-radius: 4px; flex: 1;
+  }
+  .modal-row textarea { resize: vertical; min-height: 60px; }
+  .modal-actions { margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; }
+  .seg-chip {
+    display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 10px;
+    font-weight: bold; color: #fff; margin: 2px;
+  }
+</style>
+</head>
+<body>
+
+<h1 id="chart-title" class="title-editable" onclick="editTitle()" title="Click to edit title">DAY-0 GANTT CHART</h1>
+<span id="sync-indicator" style="font-size:12px;margin-left:10px;color:#666;vertical-align:middle;"></span>
+
+<div class="controls">
+  <button class="btn primary" onclick="addRow()">+ Add Row</button>
+  <button class="btn" onclick="undo()" title="Ctrl+Z">Undo</button>
+  <button class="btn" onclick="redo()" title="Ctrl+Y">Redo</button>
+  <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
+  <button class="btn" onclick="showAddColModal()">+ Add Col</button>
+  <button class="btn" onclick="removeColumn()">- Remove Col</button>
+  <button class="btn green" onclick="showAddSegModal()">+ Add Seg</button>
+  <button class="btn" onclick="showRemoveSegModal()">- Remove Seg</button>
+  <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
+  <span class="color-picker-wrap">
+    Paint:
+    <input type="color" id="paint-color" value="#2e7d32" onchange="onPaintColorChange(this.value)" />
+    <span class="paint-indicator" id="paint-dot" style="background:#2e7d32"></span>
+    <button class="btn" id="paint-toggle-btn" onclick="togglePaint()">Off</button>
+    <button class="btn" id="erase-btn" onclick="toggleErase()">Erase</button>
+  </span>
+  <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
+  <button class="btn" onclick="exportData()">Export</button>
+  <button class="btn" onclick="exportImage()">PNG</button>
+  <button class="btn" onclick="importData()">Import</button>
+  <button class="btn" onclick="saveToStorage()">Save</button>
+  <button class="btn" onclick="loadFromStorage()">Load</button>
+  <button class="btn danger" onclick="clearAll()">Clear</button>
+  <span class="hint">| Click cell to type | Paint / Erase | Ctrl+Z/Y | ESC to exit paint</span>
+</div>
+
+<div class="gantt-wrap">
+<table class="gantt-table" id="gantt">
+  <thead id="thead"></thead>
+  <tbody id="tbody"></tbody>
+</table>
+</div>
+
+<div class="breakdown">
+  <div class="breakdown-title">SEGMENT BREAKDOWN</div>
+  <div id="breakdown-content"></div>
+</div>
+
+<div class="loading-overlay active" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text">Loading...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box">
+    <div class="modal-title" id="modal-title"></div>
+    <div id="modal-body"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" id="modal-ok" onclick="modalOk()">OK</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+// ============================================================
+// DATA
+// ============================================================
+
+let segments = {
+  SEG1: { cols: 4, start: '8AM', end: '9AM', label: 'PRAISE & WORSHIP' },
+  SEG2: { cols: 5, start: '9AM', end: '10AM', label: 'CHOIR PRODUCTION' },
+  SEG3: { cols: 5, start: '10AM', end: '11AM', label: 'DANCE PRODUCTION' },
+  SEG4: { cols: 4, start: '11AM', end: '12PM', label: 'AWARDING' },
+  SEG5: { cols: 6, start: '12PM', end: '2PM', label: 'PREACHING PROPER' },
+  SEG6: { cols: 4, start: '2PM', end: '3PM', label: 'END PROD' }
+};
+
+// Cell format: { t: 'text', b: '#hexcolor' } or '' for empty
+
+const textColors = {
+  'Band': '#4a148c','Choir': '#6a1b9a','Dance': '#e65100','SM': '#283593','Dir': '#c62828',
+  'Run': '#00838f','Full': '#2e7d32'
+};
+
+function makeCell(text, color) {
+  if (!text && !color) return '';
+  return { t: text || '', b: color || '' };
+}
+
+function cellText(cell) { return cell ? (cell.t || '') : ''; }
+function cellColor(cell) { return cell ? (cell.b || '') : ''; }
+function cellEmpty(cell) { return !cell || (!cell.t && !cell.b); }
+
+const defaultRows = [
+  { task: 'BAND / MUSICIANS',  oic: 'JOMER', start: '8AM', appearances: '6', cells: ['Band','Band','Band','Band','Band','Band','Band','Band','Band','','','','','','','','','Band','Band','Band','Band','Band','Band','Band','Band','Band','Band'] },
+  { task: 'CHOIR',             oic: 'NIKKA', start: '9AM', appearances: '4',  cells: ['','','','','Choir','Choir','Choir','Choir','Choir','Choir','Choir','Choir','Choir','Choir','','','','','','','','','','','','','',''] },
+  { task: 'DANCERS',           oic: 'MIKAS', start: '10AM', appearances: '3', cells: ['','','','','','','','','','Dance','Dance','Dance','Dance','Dance','Dance','Dance','Dance','Dance','','','','','','','','','',''] },
+  { task: 'LIGHTS',            oic: 'KIM',   start: '8AM', appearances: '7',  cells: ['Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run'] },
+  { task: 'SOUND',             oic: 'HANS',  start: '8AM', appearances: '7',  cells: ['Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run'] },
+  { task: 'SCREEN / LED',      oic: 'JAJA',  start: '8AM', appearances: '7',  cells: ['Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run','Run'] },
+  { task: 'STAGE / SET',       oic: 'ELLA',  start: '8AM', appearances: '7',  cells: ['Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full','Full'] },
+  { task: 'PRODUCTION',        oic: 'MITCH', start: '8AM', appearances: '7',  cells: ['SM','SM','SM','SM','SM','SM','SM','SM','SM','SM','SM','SM','SM','SM','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir','Dir'] },
+];
+
+function migrateCells(cells) {
+  return cells.map(c => {
+    if (!c || typeof c === 'string') {
+      const tag = c || '';
+      const color = textColors[tag] || '';
+      return tag || color ? { t: tag, b: color } : '';
+    }
+    return c;
+  });
+}
+
+let rows = JSON.parse(JSON.stringify(defaultRows)).map(r => ({ ...r, cells: migrateCells(r.cells) }));
+
+let paintColor = '';
+let isPainting = false;
+let isErasing = false;
+let paintStarted = false;
+let chartTitle = 'DAY-0 GANTT CHART';
+let modalCallback = null;
+let syncStatus = 'local';
+let lastSaved = 0;
+const chartId = new URLSearchParams(window.location.search).get('chart') || '';
+
+// ============================================================
+// UNDO / REDO
+// ============================================================
+let undoStack = [];
+let redoStack = [];
+const MAX_UNDO = 50;
+
+function pushUndo() {
+  undoStack.push(JSON.stringify({ rows: rows, segments: segments }));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+  redoStack = [];
+}
+
+function undo() {
+  if (!undoStack.length) { showToast('Nothing to undo'); return; }
+  redoStack.push(JSON.stringify({ rows: rows, segments: segments }));
+  const prev = JSON.parse(undoStack.pop());
+  rows = prev.rows;
+  segments = prev.segments;
+  render();
+  saveToStorage();
+  showToast('Undo');
+}
+
+function redo() {
+  if (!redoStack.length) { showToast('Nothing to redo'); return; }
+  undoStack.push(JSON.stringify({ rows: rows, segments: segments }));
+  const next = JSON.parse(redoStack.pop());
+  rows = next.rows;
+  segments = next.segments;
+  render();
+  saveToStorage();
+  showToast('Redo');
+}
+
+// ============================================================
+// SEGMENT & COLUMN HELPERS
+// ============================================================
+
+function getOrderedSegs() {
+  const keys = Object.keys(segments).filter(k => k.startsWith('SEG'));
+  keys.sort((a, b) => parseInt(a.replace('SEG','')) - parseInt(b.replace('SEG','')));
+  return keys;
+}
+
+function getTotalCols() {
+  return getOrderedSegs().reduce((sum, s) => sum + (segments[s] ? segments[s].cols : 0), 0);
+}
+
+function getBackgroundSegClass(colIdx) {
+  const ordered = getOrderedSegs();
+  let acc = 0;
+  for (let si = 0; si < ordered.length; si++) {
+    if (!segments[ordered[si]]) return;
+    if (colIdx < acc + segments[ordered[si]].cols) return si;
+    acc += segments[ordered[si]].cols;
+  }
+}
+
+const segColors = [
+  '#6cb87a','#d4a017','#d96c4f','#6a9fd8','#9b6ad9','#d96a8a',
+  '#4caf50','#ff9800','#f44336','#2196f3','#9c27b0','#e91e63',
+  '#009688','#ff5722','#3f51b5','#8bc34a','#00bcd4','#795548'
+];
+
+function getSegColor(idx) {
+  return segColors[idx % segColors.length];
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+
+let rendering = false;
+
+function render() {
+  if (rendering) return;
+  rendering = true;
+  renderHeader();
+  renderBody();
+  renderBreakdown();
+  rendering = false;
+}
+
+function renderHeader() {
+  const thead = document.getElementById('thead');
+  if (!thead) return;
+  const ordered = getOrderedSegs();
+  let html = '<tr>';
+  html += '<th style="min-width:300px">TEAM / TASK</th>';
+  html += '<th style="min-width:40px">OIC</th>';
+  html += '<th style="min-width:40px">START</th>';
+  html += '<th style="min-width:28px">#</th>';
+  ordered.forEach((s, si) => {
+    const seg = segments[s];
+    if (!seg) return;
+    const color = seg.color || getSegColor(si);
+    html += `<th colspan="${seg.cols}" data-seg="${s}" style="background:${color};color:#fff;">
+      <span class="seg-name-editable" onclick="editSegmentLabel('${s}')" title="Click to rename">${esc(seg.label || s)}</span>
+    </th>`;
+  });
+  html += '</tr>';
+  thead.innerHTML = html;
+}
+
+function renderBody() {
+  const tbody = document.getElementById('tbody');
+  let html = '';
+  const orderedSegs = getOrderedSegs();
+  rows.forEach((row, ri) => {
+    html += '<tr>';
+    html += `<td style="text-align:left;background:#f5f5f5;padding:0 6px;min-width:300px;">
+      <span class="drag-handle" title="Drag to reorder" draggable="true"
+        ondragstart="rowDragStart(event,${ri})"
+        ondragover="rowDragOver(event,${ri})"
+        ondragleave="rowDragLeave(event)"
+        ondrop="rowDrop(event,${ri})"
+        ondragend="rowDragEnd(event)">&#9776;</span>
+      <span class="delete-row" onclick="deleteRow(${ri})" title="Delete row">&times;</span>
+      <input class="task-input" value="${esc(row.task)}" onchange="updateField(${ri},'task',this.value)" />
+    </td>`;
+    html += `<td><input class="small-input" style="width:38px" value="${esc(row.oic)}" onchange="updateField(${ri},'oic',this.value)" /></td>`;
+    html += `<td><input class="small-input" style="width:38px" value="${esc(row.start)}" onchange="updateField(${ri},'start',this.value)" /></td>`;
+    html += `<td><input class="small-input" style="width:26px" value="${esc(row.appearances)}" onchange="updateField(${ri},'appearances',this.value)" /></td>`;
+
+    const total = orderedSegs.reduce((sum, s) => sum + (segments[s] ? segments[s].cols : 0), 0);
+    for (let ci = 0; ci < total; ci++) {
+      const si = getBackgroundSegClass(ci);
+      const cell = row.cells[ci];
+      const text = cellText(cell);
+      const color = cellColor(cell);
+      const segColor = si !== undefined ? (segments[orderedSegs[si]]?.color || getSegColor(si)) : '#f0f0f0';
+      let style = '';
+      if (color) {
+        style = `background:${color};color:${text ? '#fff' : ''};`;
+      } else {
+        style = `background:${segColor}22;`; // light tint (hex opacity approximation)
+      }
+      html += `<td class="task-cell ${color ? 'filled' : ''}" style="${style}" data-ri="${ri}" data-ci="${ci}"
+        onmousedown="cellPaintStart(event,${ri},${ci})"
+        onmouseenter="cellPaintDrag(event,${ri},${ci})"
+        ontouchstart="cellTouchStart(event,${ri},${ci})"
+        ontouchmove="cellTouchEnter(event,${ri},${ci})"
+        onclick="cellClick(${ri},${ci})">${esc(text)}</td>`;
+    }
+    html += '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function renderBreakdown() {
+  const el = document.getElementById('breakdown-content');
+  if (!el) return;
+  const ordered = getOrderedSegs();
+  el.innerHTML = ordered.map((s, si) => {
+    const seg = segments[s];
+    if (!seg) return '';
+    return `<span class="seg-chip" style="background:${seg.color || getSegColor(si)}">${esc(seg.label || s)} (${seg.cols})</span>`;
+  }).join(' &nbsp;|&nbsp; ');
+}
+
+// ============================================================
+// CELL EDITING
+// ============================================================
+
+function cellClick(ri, ci) {
+  cellEdit(ri, ci);
+}
+
+function cellEdit(ri, ci) {
+  const td = document.querySelector(`td[data-ri="${ri}"][data-ci="${ci}"]`);
+  if (!td || td.querySelector('input')) return;
+  const cell = rows[ri].cells[ci];
+  const current = cellText(cell);
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'cell-input';
+  input.value = current;
+  input.maxLength = 10;
+  td.innerHTML = '';
+  td.appendChild(input);
+  input.focus();
+  input.select();
+  input.addEventListener('blur', () => saveCell(ri, ci, input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveCell(ri, ci, input.value);
+    if (e.key === 'Escape') render();
+  });
+}
+
+function saveCell(ri, ci, val) {
+  const cell = rows[ri].cells[ci];
+  const currentText = cellText(cell);
+  const currentColor = cellColor(cell);
+  val = val.trim();
+  if (currentText !== val) {
+    pushUndo();
+    const color = currentColor || (val && isPainting && document.getElementById('paint-color').value) || '';
+    rows[ri].cells[ci] = val || color ? { t: val, b: color } : '';
+    render();
+    saveToStorage();
+  } else {
+    render();
+  }
+}
+
+// ============================================================
+// PAINT MODE
+// ============================================================
+
+function onPaintColorChange(hex) {
+  document.getElementById('paint-dot').style.background = hex;
+  if (isPainting) {
+    paintColor = hex;
+  }
+}
+
+function togglePaint() {
+  if (isErasing) stopErase();
+  const btn = document.getElementById('paint-toggle-btn');
+  if (isPainting) {
+    stopPaint();
+  } else {
+    const color = document.getElementById('paint-color').value;
+    paintColor = color;
+    isPainting = true;
+    document.body.classList.add('paint-mode');
+    btn.textContent = 'On';
+    showToast(`Paint mode — drag over cells to color`);
+  }
+  updatePaintUI();
+}
+
+function stopPaint() {
+  isPainting = false;
+  paintColor = '';
+  paintStarted = false;
+  document.body.classList.remove('paint-mode');
+  document.body.classList.remove('erase-mode');
+  const btn = document.getElementById('paint-toggle-btn');
+  if (btn) btn.textContent = 'Off';
+  updatePaintUI();
+  updateEraseUI();
+}
+
+function toggleErase() {
+  if (isPainting) stopPaint();
+  if (isErasing) {
+    stopErase();
+  } else {
+    isErasing = true;
+    document.body.classList.add('erase-mode');
+    showToast('Erase mode — drag over cells to clear');
+  }
+  updateEraseUI();
+  updatePaintUI();
+}
+
+function stopErase() {
+  isErasing = false;
+  document.body.classList.remove('erase-mode');
+  updateEraseUI();
+}
+
+function updatePaintUI() {
+  const btn = document.getElementById('paint-toggle-btn');
+  if (!btn) return;
+  btn.textContent = isPainting ? 'On' : 'Off';
+  btn.className = 'btn' + (isPainting ? ' paint-active' : '');
+}
+
+function updateEraseUI() {
+  const btn = document.getElementById('erase-btn');
+  if (!btn) return;
+  btn.textContent = isErasing ? 'On' : 'Erase';
+  btn.className = 'btn' + (isErasing ? ' erase-active' : '');
+}
+
+function cellPaintStart(e, ri, ci) {
+  if (e.button !== 0) return;
+  if (!isPainting && !isErasing) return;
+  e.preventDefault();
+  paintStarted = false;
+
+  if (isErasing) {
+    pushUndo();
+    paintStarted = true;
+    rows[ri].cells[ci] = '';
+    render();
+    return;
+  }
+
+  if (paintColor) {
+    pushUndo();
+    paintStarted = true;
+    const cell = rows[ri].cells[ci];
+    const text = cellText(cell);
+    rows[ri].cells[ci] = text || paintColor ? { t: text, b: paintColor } : '';
+    render();
+  }
+}
+
+// Touch handlers
+function cellTouchStart(e, ri, ci) {
+  e.preventDefault();
+  cellPaintStart({ button: 0, preventDefault: () => {} }, ri, ci);
+}
+
+function cellTouchEnter(e, ri, ci) {
+  if (!isPainting && !isErasing) return;
+  cellPaintDrag({}, ri, ci);
+}
+
+function cellPaintDrag(e, ri, ci) {
+  if (isErasing) {
+    if (!paintStarted) { pushUndo(); paintStarted = true; }
+    rows[ri].cells[ci] = '';
+    const td = document.querySelector(`td[data-ri="${ri}"][data-ci="${ci}"]`);
+    if (td) {
+      td.style.background = '';
+      td.style.color = '';
+      td.textContent = '';
+      td.className = 'task-cell';
+    }
+    return;
+  }
+
+  if (!isPainting || !paintColor) return;
+  if (!paintStarted) { pushUndo(); paintStarted = true; }
+  const cell = rows[ri].cells[ci];
+  const text = cellText(cell);
+  rows[ri].cells[ci] = text || paintColor ? { t: text, b: paintColor } : '';
+  const td = document.querySelector(`td[data-ri="${ri}"][data-ci="${ci}"]`);
+  if (td) {
+    td.style.background = paintColor;
+    td.style.color = text ? '#fff' : '';
+    td.className = 'task-cell filled';
+  }
+}
+
+document.addEventListener('mouseup', () => {
+  if (isPainting || isErasing) {
+    paintStarted = false;
+    saveToStorage();
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && isPainting) {
+    stopPaint();
+    showToast('Paint mode off');
+  }
+  if (e.key === 'Escape' && isErasing) {
+    stopErase();
+    showToast('Erase mode off');
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'y') { e.preventDefault(); redo(); }
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveToStorage(); showToast('Saved'); }
+});
+
+// ============================================================
+// ROW OPERATIONS
+// ============================================================
+
+function updateField(ri, field, val) {
+  if (rows[ri][field] !== val) {
+    pushUndo();
+    rows[ri][field] = val;
+    saveToStorage();
+  }
+}
+
+function deleteRow(ri) {
+  if (rows.length <= 1) { showToast('Cannot delete last row'); return; }
+  if (!confirm('Delete this row?')) return;
+  pushUndo();
+  rows.splice(ri, 1);
+  render();
+  saveToStorage();
+  showToast('Row deleted');
+}
+
+function addRow() {
+  pushUndo();
+  rows.push({ task: 'NEW TASK', oic: '', start: '', appearances: '', cells: Array(getTotalCols()).fill('') });
+  render();
+  saveToStorage();
+  showToast('Row added');
+}
+
+// ============================================================
+// COLUMN OPERATIONS
+// ============================================================
+
+function removeColumn() {
+  const ordered = getOrderedSegs();
+  const lastSeg = ordered[ordered.length - 1];
+  if (!lastSeg || !segments[lastSeg] || segments[lastSeg].cols <= 1) { showToast('Last column'); return; }
+  pushUndo();
+  segments[lastSeg].cols--;
+  for (let ri = 0; ri < rows.length; ri++) rows[ri].cells.pop();
+  render();
+  saveToStorage();
+  showToast('Column removed from ' + lastSeg);
+}
+
+function showAddColModal() {
+  const ordered = getOrderedSegs();
+  document.getElementById('modal-title').textContent = 'Add Column';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-row">
+      <label>Segment:</label>
+      <select id="m-col-seg">
+        ${ordered.map(s => `<option value="${s}">${s} (${segments[s].start}-${segments[s].end})</option>`).join('')}
+      </select>
+    </div>
+  `;
+  modalCallback = () => {
+    const seg = document.getElementById('m-col-seg').value;
+    if (!seg || !segments[seg]) return;
+    pushUndo();
+    let insertIdx = 0;
+    const ordered = getOrderedSegs();
+    for (let s of ordered) {
+      if (s === seg) break;
+      insertIdx += segments[s].cols;
+    }
+    segments[seg].cols++;
+    for (let ri = 0; ri < rows.length; ri++) rows[ri].cells.splice(insertIdx, 0, '');
+    render();
+    saveToStorage();
+    showToast('Column added to ' + seg);
+  };
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+// ============================================================
+// SEGMENT OPERATIONS
+// ============================================================
+
+function showAddSegModal() {
+  const existingSegs = Object.keys(segments);
+  const segKeys = existingSegs.filter(k => k.startsWith('SEG')).map(k => parseInt(k.replace('SEG',''))).filter(n => !isNaN(n));
+  const nextNum = segKeys.length ? Math.max(...segKeys) + 1 : 1;
+
+  document.getElementById('modal-title').textContent = 'Add New Segment';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-row"><label>Name:</label><input id="m-seg-name" value="SEG${nextNum}" readonly style="width:70px" /></div>
+    <div class="modal-row"><label>Columns:</label><input type="number" id="m-seg-cols" value="5" min="1" max="12" style="width:60px" /></div>
+    <div class="modal-row"><label>Start:</label><input id="m-seg-start" value="8AM" placeholder="e.g. 8AM" /></div>
+    <div class="modal-row"><label>End:</label><input id="m-seg-end" value="12PM" placeholder="e.g. 12PM" /></div>
+    <div class="modal-row"><label>Label:</label><input id="m-seg-label" value="SEGMENT ${nextNum}" placeholder="Display label" /></div>
+    <div class="modal-row"><label>Color:</label><input type="color" id="m-seg-color" value="${getSegColor(Object.keys(segments).length)}" style="width:50px;height:28px;padding:0;border:1px solid #999;cursor:pointer;" /></div>
+  `;
+  modalCallback = () => {
+    const name = document.getElementById('m-seg-name').value;
+    if (!name) return;
+    const cols = parseInt(document.getElementById('m-seg-cols').value) || 5;
+    const start = document.getElementById('m-seg-start').value;
+    const end = document.getElementById('m-seg-end').value;
+    const label = document.getElementById('m-seg-label').value;
+    const color = document.getElementById('m-seg-color').value;
+    if (!start || !end) { showToast('Fill start & end times'); return; }
+    if (segments[name]) { showToast(name + ' already exists'); return; }
+    pushUndo();
+    segments[name] = { cols, start, end, label: label || name, color };
+    for (let ri = 0; ri < rows.length; ri++) {
+      for (let c = 0; c < cols; c++) rows[ri].cells.push('');
+    }
+    render();
+    saveToStorage();
+    showToast(name + ' added (' + cols + ' columns)');
+  };
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+function showRemoveSegModal() {
+  const allSegs = Object.keys(segments);
+  document.getElementById('modal-title').textContent = 'Remove Segment';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-row">
+      <label>Segment:</label>
+      <select id="m-rem-seg">
+        ${allSegs.map(s => `<option value="${s}">${s} (${segments[s].start}-${segments[s].end}, ${segments[s].cols} cols)</option>`).join('')}
+      </select>
+    </div>
+    <p style="font-size:10px;color:#c62828;">Warning: removing a segment deletes its columns from all rows.</p>
+  `;
+  document.getElementById('modal-ok').style.display = '';
+  modalCallback = () => {
+    const name = document.getElementById('m-rem-seg').value;
+    if (!segments[name]) return;
+    pushUndo();
+    let startIdx = 0;
+    const ordered = getOrderedSegs();
+    for (let s of ordered) {
+      if (s === name) break;
+      startIdx += segments[s].cols;
+    }
+    const cols = segments[name].cols;
+    delete segments[name];
+    rows.forEach(row => {
+      row.cells.splice(startIdx, cols);
+    });
+    if (Object.keys(segments).length === 0) {
+      segments.SEG1 = { cols: 4, start: '8AM', end: '12PM', label: 'DEFAULT', color: '#6cb87a' };
+      rows.forEach(row => {
+        for (let i = 0; i < 4; i++) row.cells.splice(0, 0, '');
+      });
+      showToast('All segments removed — created default');
+    }
+    render();
+    saveToStorage();
+    showToast(name + ' removed');
+    document.getElementById('modal-overlay').classList.remove('active');
+  };
+  document.getElementById('modal-overlay').classList.add('active');
+}
+
+document.getElementById('modal-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modal-overlay')) closeModal();
+});
+
+function editSegmentLabel(segKey) {
+  const seg = segments[segKey];
+  if (!seg) return;
+  const current = seg.label || segKey;
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.style.cssText = 'font-family:inherit;font-size:12px;font-weight:bold;border:none;background:rgba(255,255,255,0.2);color:#fff;padding:2px 4px;width:120px;border-radius:2px;';
+  const span = document.querySelector(`th[data-seg="${segKey}"] .seg-name-editable`);
+  if (!span) return;
+  span.textContent = '';
+  span.appendChild(input);
+  input.focus();
+  input.select();
+  input.addEventListener('blur', () => saveSegmentLabel(segKey, input.value, span));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveSegmentLabel(segKey, input.value, span);
+    if (e.key === 'Escape') { span.textContent = current; render(); }
+  });
+  input.addEventListener('click', e => e.stopPropagation());
+}
+
+function saveSegmentLabel(segKey, val, el) {
+  const seg = segments[segKey];
+  if (!seg) return;
+  val = val.trim() || segKey;
+  seg.label = val;
+  if (el) el.textContent = val;
+  render();
+  saveToStorage();
+}
+
+function editTitle() {
+  const h1 = document.getElementById('chart-title');
+  const current = h1.textContent.trim();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.className = 'title-input';
+  input.style.cssText = 'font-family:inherit;font-size:16px;font-weight:bold;border:none;background:#fff;padding:4px 8px;width:300px;';
+  h1.textContent = '';
+  h1.appendChild(input);
+  input.focus();
+  input.select();
+  input.addEventListener('blur', () => saveTitle(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') saveTitle(input.value);
+    if (e.key === 'Escape') { h1.textContent = current; }
+  });
+}
+
+function saveTitle(val) {
+  chartTitle = val.trim() || 'DAY-0 GANTT CHART';
+  const h1 = document.getElementById('chart-title');
+  h1.textContent = chartTitle;
+  h1.setAttribute('title', 'Click to edit title');
+  saveToStorage();
+}
+
+function modalOk() {
+  if (modalCallback) modalCallback();
+  closeModal();
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('active');
+  modalCallback = null;
+}
+
+// ============================================================
+// PERSISTENCE
+// ============================================================
+
+function saveToStorage() {
+  storage.setItem('gantt_v4', JSON.stringify({ rows, segments, undoStack: undoStack.slice(-10), chartTitle }));
+  saveToApi();
+}
+
+function loadFromStorage() {
+  const data = storage.getItem('gantt_v4') || storage.getItem('gantt_v3');
+  if (!data) { showToast('No saved data'); return; }
+  try {
+      const d = JSON.parse(data);
+      if (!d.rows || !d.segments) { showToast('Saved data corrupted'); return; }
+      pushUndo();
+      rows = d.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
+    segments = d.segments || {};
+    chartTitle = d.chartTitle || 'DAY-0 GANTT CHART';
+    if (d.undoStack && d.undoStack.length) {
+      undoStack = d.undoStack;
+      redoStack = [];
+    }
+    document.getElementById('chart-title').textContent = chartTitle;
+    render();
+    showToast('Loaded ' + rows.length + ' rows');
+  } catch(e) {
+    showToast('Load failed — data corrupted');
+    storage.removeItem('gantt_v4');
+    storage.removeItem('gantt_v3');
+  }
+}
+
+function clearAll() {
+  if (!confirm('Clear all data? This removes all segments and rows.')) return;
+  pushUndo();
+  const keys = Object.keys(segments);
+  keys.forEach(k => delete segments[k]);
+  segments.SEG1 = { cols: 4, start: '8AM', end: '9AM', label: 'DEFAULT', color: '#6cb87a' };
+  rows = [{ task: 'NEW TASK', oic: '', start: '', appearances: '', cells: Array(getTotalCols()).fill('') }];
+  render();
+  saveToStorage();
+  showToast('Cleared');
+}
+
+function exportData() {
+  const data = JSON.stringify({ rows, segments }, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'gantt-data.json';
+  a.click();
+  showToast('Exported JSON');
+}
+
+function exportImage() {
+  const wrap = document.querySelector('.gantt-wrap');
+  const title = document.getElementById('chart-title');
+  if (!wrap || !title) return;
+
+  const container = document.createElement('div');
+  container.style.cssText = 'position:absolute;left:-9999px;top:0;background:#fff;padding:20px;font-family:Arial,sans-serif;';
+  const h = document.createElement('h1');
+  h.textContent = title.textContent;
+  h.style.cssText = 'font-size:20px;font-weight:bold;margin:0 0 12px 0;color:#000;';
+  container.appendChild(h);
+  const clone = wrap.cloneNode(true);
+  clone.style.overflow = 'visible';
+  clone.style.maxWidth = 'none';
+  clone.style.border = '1px solid #000';
+  container.appendChild(clone);
+  document.body.appendChild(container);
+
+  requestAnimationFrame(() => {
+    html2canvas(container, { backgroundColor: '#fff', scale: 2, useCORS: true, width: container.scrollWidth, height: container.scrollHeight }).then(canvas => {
+      document.body.removeChild(container);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = 'gantt-chart.png';
+      a.click();
+      showToast('Exported PNG');
+    }).catch(() => { document.body.removeChild(container); showToast('Export failed'); });
+  });
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const d = JSON.parse(ev.target.result);
+        if (d.rows && d.segments) {
+          pushUndo();
+          rows = d.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
+          segments = d.segments;
+          render();
+          saveToStorage();
+          showToast('Imported ' + rows.length + ' rows');
+        } else {
+          showToast('Invalid file format');
+        }
+      } catch(err) { showToast('Invalid JSON'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ============================================================
+// CLOUD SYNC
+// ============================================================
+
+function updateSyncIndicator() {
+  const el = document.getElementById('sync-indicator');
+  if (!el) return;
+  if (syncStatus === 'synced') el.innerHTML = '&#x2705; Synced';
+  else if (syncStatus === 'offline') el.innerHTML = '&#x26A0; Server offline';
+  else el.innerHTML = '&#x1F4E1; Local only';
+}
+
+async function saveToApi() {
+  try {
+    const qs = chartId ? `?chart=${encodeURIComponent(chartId)}` : '';
+    const res = await fetch('/api/data' + qs, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows, segments, chartTitle, updatedAt: Date.now() })
+    });
+    if (res.ok) { lastSaved = Date.now(); syncStatus = 'synced'; }
+  } catch { syncStatus = 'offline'; }
+  updateSyncIndicator();
+}
+
+async function fetchFromApi() {
+  try {
+    const qs = chartId ? `?chart=${encodeURIComponent(chartId)}` : '';
+    const res = await fetch('/api/data' + qs);
+    if (!res.ok) return null;
+    return await res.json();
+  } catch { return null; }
+}
+
+async function syncFromApi() {
+  const remote = await fetchFromApi();
+  if (!remote || !remote.rows || !remote.segments) return;
+  if (!remote.updatedAt || remote.updatedAt <= lastSaved) return;
+  if (!confirm('Newer data found on server. Reload? Changes since last sync will be lost.')) return;
+  rows = remote.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
+  segments = remote.segments;
+  chartTitle = remote.chartTitle || 'DAY-0 GANTT CHART';
+  document.getElementById('chart-title').textContent = chartTitle;
+  lastSaved = remote.updatedAt || Date.now();
+  render();
+  showToast('Synced from server');
+}
+
+// ============================================================
+// UTILITY
+// ============================================================
+
+function esc(str) {
+  if (!str && str !== 0) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2000);
+}
+
+let dragSrc = -1;
+
+function rowDragStart(e, ri) {
+  dragSrc = ri;
+  const tr = e.target.closest('tr');
+  if (tr) tr.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function rowDragOver(e, ri) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('tbody tr').forEach(t => t.classList.remove('drag-over'));
+  const tr = e.target.closest('tr');
+  if (tr) tr.classList.add('drag-over');
+}
+
+function rowDragLeave(e) {
+  const tr = e.target.closest('tr');
+  if (tr) tr.classList.remove('drag-over');
+}
+
+function rowDrop(e, targetRi) {
+  e.preventDefault();
+  if (dragSrc < 0 || dragSrc === targetRi) return;
+  pushUndo();
+  const [moved] = rows.splice(dragSrc, 1);
+  rows.splice(targetRi, 0, moved);
+  render();
+  saveToStorage();
+  showToast('Row reordered');
+}
+
+function rowDragEnd(e) {
+  dragSrc = -1;
+  document.querySelectorAll('tr').forEach(t => t.classList.remove('drag-over', 'dragging'));
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+(async function init() {
+  await fetchFromApi().then(remote => {
+    if (remote && remote.rows && remote.segments && remote.rows.length > 0 && Object.keys(remote.segments).length > 0) {
+      pushUndo();
+      rows = remote.rows.map(r => ({ ...r, cells: migrateCells(r.cells || []) }));
+      segments = remote.segments;
+      chartTitle = remote.chartTitle || 'DAY-0 GANTT CHART';
+      document.getElementById('chart-title').textContent = chartTitle;
+      lastSaved = remote.updatedAt || Date.now();
+      syncStatus = 'synced';
+      updateSyncIndicator();
+      showToast('Loaded from server');
+    } else {
+      loadFromStorage();
+    }
+  }).catch(() => loadFromStorage());
+  document.getElementById('loading-overlay').classList.remove('active');
+  render();
+  setInterval(syncFromApi, 30000);
+})();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+
+const storage = {
+  getItem(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  },
+  setItem(key, val) {
+    try { localStorage.setItem(key, val); return true; } catch { showToast('Storage full — export to save permanently'); return false; }
+  },
+  removeItem(key) {
+    try { localStorage.removeItem(key); } catch {}
+  }
+};
+</script>
+</body>
+</html>
