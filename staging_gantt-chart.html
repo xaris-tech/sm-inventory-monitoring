@@ -226,7 +226,7 @@
   <button class="btn" onclick="redo()" title="Ctrl+Y">Redo</button>
   <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
   <button class="btn" onclick="showAddColModal()">+ Add Col</button>
-  <button class="btn" onclick="removeColumn()">- Remove Col</button>
+  <button class="btn" onclick="showRemoveColModal()">- Remove Col</button>
   <button class="btn green" onclick="showAddSegModal()">+ Add Seg</button>
   <button class="btn" onclick="showRemoveSegModal()">- Remove Seg</button>
   <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
@@ -737,16 +737,38 @@ function addRow() {
 // COLUMN OPERATIONS
 // ============================================================
 
-function removeColumn() {
+function showRemoveColModal() {
   const ordered = getOrderedSegs();
-  const lastSeg = ordered[ordered.length - 1];
-  if (!lastSeg || !segments[lastSeg] || segments[lastSeg].cols <= 1) { showToast('Last column'); return; }
-  pushUndo();
-  segments[lastSeg].cols--;
-  for (let ri = 0; ri < rows.length; ri++) rows[ri].cells.pop();
-  render();
-  saveToStorage();
-  showToast('Column removed from ' + lastSeg);
+  if (ordered.length === 0) { showToast('No segments'); return; }
+  document.getElementById('modal-title').textContent = 'Remove Column';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-row">
+      <label>Segment:</label>
+      <select id="m-rm-col-seg">
+        ${ordered.map(s => `<option value="${s}">${s} (${segments[s].start}-${segments[s].end}, ${segments[s].cols} cols)</option>`).join('')}
+      </select>
+    </div>
+    <p style="font-size:10px;color:#c62828;">Warning: removes the last column of the selected segment.</p>
+  `;
+  modalCallback = () => {
+    const seg = document.getElementById('m-rm-col-seg').value;
+    if (!seg || !segments[seg]) return;
+    if (segments[seg].cols <= 1) { showToast('Segment must have at least 1 column'); return; }
+    pushUndo();
+    let rmIdx = 0;
+    const ordered = getOrderedSegs();
+    for (let s of ordered) {
+      if (s === seg) break;
+      rmIdx += segments[s].cols;
+    }
+    rmIdx += segments[seg].cols - 1;
+    segments[seg].cols--;
+    for (let ri = 0; ri < rows.length; ri++) rows[ri].cells.splice(rmIdx, 1);
+    render();
+    saveToStorage();
+    showToast('Column removed from ' + seg);
+  };
+  document.getElementById('modal-overlay').classList.add('active');
 }
 
 function showAddColModal() {
@@ -847,13 +869,6 @@ function showRemoveSegModal() {
     rows.forEach(row => {
       row.cells.splice(startIdx, cols);
     });
-    if (Object.keys(segments).length === 0) {
-      segments.SEG1 = { cols: 4, start: '8AM', end: '12PM', label: 'DEFAULT', color: '#6cb87a' };
-      rows.forEach(row => {
-        for (let i = 0; i < 4; i++) row.cells.splice(0, 0, '');
-      });
-      showToast('All segments removed — created default');
-    }
     render();
     saveToStorage();
     showToast(name + ' removed');
@@ -969,12 +984,11 @@ function loadFromStorage() {
 }
 
 function clearAll() {
-  if (!confirm('Clear all data? This removes all segments and rows.')) return;
+  if (!confirm('Clear all data? This removes all segments, cells, and rows.')) return;
   pushUndo();
   const keys = Object.keys(segments);
   keys.forEach(k => delete segments[k]);
-  segments.SEG1 = { cols: 4, start: '8AM', end: '9AM', label: 'DEFAULT', color: '#6cb87a' };
-  rows = [{ task: 'NEW TASK', oic: '', start: '', appearances: '', cells: Array(getTotalCols()).fill('') }];
+  rows = [{ task: 'NEW TASK', oic: '', start: '', appearances: '', cells: [] }];
   render();
   saveToStorage();
   showToast('Cleared');
