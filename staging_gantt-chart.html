@@ -815,11 +815,10 @@ function showAddSegModal() {
 
   document.getElementById('modal-title').textContent = 'Add New Segment';
   document.getElementById('modal-body').innerHTML = `
-    <div class="modal-row"><label>Name:</label><input id="m-seg-name" value="SEG${nextNum}" style="width:70px" placeholder="Key (auto)" /></div>
+    <div class="modal-row"><label>Name:</label><input id="m-seg-name" value="SEG${nextNum}" style="width:150px" placeholder="e.g. P&W" /></div>
     <div class="modal-row"><label>Columns:</label><input type="number" id="m-seg-cols" value="5" min="1" max="12" style="width:60px" /></div>
     <div class="modal-row"><label>Start:</label><input id="m-seg-start" value="8AM" placeholder="e.g. 8AM" /></div>
     <div class="modal-row"><label>End:</label><input id="m-seg-end" value="12PM" placeholder="e.g. 12PM" /></div>
-    <div class="modal-row"><label>Label:</label><input id="m-seg-label" value="SEGMENT ${nextNum}" placeholder="Display label" /></div>
     <div class="modal-row"><label>Color:</label><input type="color" id="m-seg-color" value="${getSegColor(Object.keys(segments).length)}" style="width:50px;height:28px;padding:0;border:1px solid #999;cursor:pointer;" /></div>
   `;
   modalCallback = () => {
@@ -828,12 +827,11 @@ function showAddSegModal() {
     const cols = parseInt(document.getElementById('m-seg-cols').value) || 5;
     const start = document.getElementById('m-seg-start').value;
     const end = document.getElementById('m-seg-end').value;
-    const label = document.getElementById('m-seg-label').value;
     const color = document.getElementById('m-seg-color').value;
     if (!start || !end) { showToast('Fill start & end times'); return; }
     if (segments[name]) { showToast(name + ' already exists'); return; }
     pushUndo();
-    segments[name] = { cols, start, end, label: label || name, color };
+    segments[name] = { cols, start, end, label: name, color };
     for (let ri = 0; ri < rows.length; ri++) {
       for (let c = 0; c < cols; c++) rows[ri].cells.push('');
     }
