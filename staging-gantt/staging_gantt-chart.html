@@ -858,7 +858,7 @@ function showRemoveSegModal() {
     <div class="modal-row">
       <label>Segment:</label>
       <select id="m-rem-seg">
-        ${allSegs.map(s => `<option value="${s}">${s} (${segments[s].cols} cols)</option>`).join('')}
+        ${allSegs.map(s => `<option value="${s}">${esc(segments[s].label || s)} (${segments[s].cols} cols)</option>`).join('')}
       </select>
     </div>
     <p style="font-size:10px;color:#c62828;">Warning: removing a segment deletes its columns from all rows.</p>
