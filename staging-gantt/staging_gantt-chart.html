@@ -751,33 +751,39 @@ function addRow() {
 function showRemoveColModal() {
   const ordered = getOrderedSegs();
   if (ordered.length === 0) { showToast('No segments'); return; }
+  const total = ordered.reduce((sum, s) => sum + segments[s].cols, 0);
+  if (total <= 1) { showToast('Must have at least 1 column'); return; }
   document.getElementById('modal-title').textContent = 'Remove Column';
+  let options = '';
+  let ci = 0;
+  ordered.forEach(s => {
+    const seg = segments[s];
+    for (let j = 0; j < seg.cols; j++) {
+      options += `<option value="${ci}">${esc(seg.label || s)} — Col ${j + 1}</option>`;
+      ci++;
+    }
+  });
   document.getElementById('modal-body').innerHTML = `
     <div class="modal-row">
-      <label>Segment:</label>
-      <select id="m-rm-col-seg">
-        ${ordered.map(s => `<option value="${s}">${esc(segments[s].label || s)} (${segments[s].cols} cols)</option>`).join('')}
-      </select>
+      <label>Column:</label>
+      <select id="m-rm-col-idx">${options}</select>
     </div>
-    <p style="font-size:10px;color:#c62828;">Warning: removes the last column of the selected segment.</p>
   `;
   modalCallback = () => {
-    const seg = document.getElementById('m-rm-col-seg').value;
-    if (!seg || !segments[seg]) return;
-    if (segments[seg].cols <= 1) { showToast('Segment must have at least 1 column'); return; }
+    const rmIdx = parseInt(document.getElementById('m-rm-col-idx').value, 10);
     pushUndo();
-    let rmIdx = 0;
-    const ordered = getOrderedSegs();
-    for (let s of ordered) {
-      if (s === seg) break;
-      rmIdx += segments[s].cols;
+    let acc = 0;
+    for (const s of ordered) {
+      acc += segments[s].cols;
+      if (rmIdx < acc) {
+        segments[s].cols--;
+        break;
+      }
     }
-    rmIdx += segments[seg].cols - 1;
-    segments[seg].cols--;
     for (let ri = 0; ri < rows.length; ri++) rows[ri].cells.splice(rmIdx, 1);
     render();
     saveToStorage();
-    showToast('Column removed from ' + seg);
+    showToast('Column removed');
   };
   document.getElementById('modal-overlay').classList.add('active');
 }
