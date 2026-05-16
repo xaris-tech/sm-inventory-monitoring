@@ -382,9 +382,12 @@ function redo() {
 // ============================================================
 
 function getOrderedSegs() {
-  const keys = Object.keys(segments).filter(k => k.startsWith('SEG'));
-  keys.sort((a, b) => parseInt(a.replace('SEG','')) - parseInt(b.replace('SEG','')));
-  return keys;
+  const keys = Object.keys(segments);
+  const segKeys = keys.filter(k => /^SEG\d+$/.test(k));
+  segKeys.sort((a, b) => parseInt(a.replace('SEG',''), 10) - parseInt(b.replace('SEG',''), 10));
+  const otherKeys = keys.filter(k => !/^SEG\d+$/.test(k));
+  otherKeys.sort();
+  return [...segKeys, ...otherKeys];
 }
 
 function getTotalCols() {
@@ -439,8 +442,8 @@ function renderHeader() {
     const seg = segments[s];
     if (!seg) return;
     const color = seg.color || getSegColor(si);
-    html += `<th colspan="${seg.cols}" data-seg="${s}" style="background:${color};color:#fff;">
-      <span class="seg-name-editable" onclick="editSegmentLabel('${s}')" title="Click to rename">${esc(seg.label || s)}</span>
+    html += `<th colspan="${seg.cols}" data-seg="${s.replace(/"/g,'&quot;')}" style="background:${color};color:#fff;">
+      <span class="seg-name-editable" onclick="editSegmentLabel('${s.replace(/'/g,"\\'")}')" title="Click to rename">${esc(seg.label || s)}</span>
     </th>`;
   });
   html += '</tr>';

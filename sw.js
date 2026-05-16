@@ -1,4 +1,4 @@
-const CACHE = 'gantt-v1';
+const CACHE = 'gantt-v2';
 const URLS = [
   '/staging_gantt-chart.html',
   '/manifest.json',
