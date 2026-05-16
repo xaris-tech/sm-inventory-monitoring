@@ -479,7 +479,7 @@ function renderBody() {
       const segColor = si !== undefined ? (segments[orderedSegs[si]]?.color || getSegColor(si)) : '#f0f0f0';
       let style = '';
       if (color) {
-        style = `background:${color};color:${text ? '#fff' : ''};`;
+        style = `background:${color};color:${text && color.length > 7 ? '#333' : '#fff'};`;
       } else {
         style = `background:${segColor}22;`; // light tint (hex opacity approximation)
       }
@@ -548,7 +548,7 @@ function saveCell(ri, ci, val) {
       if (si !== undefined) {
         const ordered = getOrderedSegs();
         const seg = segments[ordered[si]];
-        if (seg) color = seg.color || getSegColor(si);
+        if (seg) color = (seg.color || getSegColor(si)) + '22';
       }
     }
     rows[ri].cells[ci] = val || color ? { t: val, b: color } : '';
