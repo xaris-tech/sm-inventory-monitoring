@@ -1,7 +1,7 @@
 const APP_NAME = 'SM Equipment Monitoring'
 
 const CONFIG = {
-  API_URL: 'https://script.google.com/macros/s/AKfycbw-IvBEPs1FVpFwpuO3jZP8rE2UUumZ_ui0GkLXT986Z9rgVvM8aGpLzrMAGlwRp7Yf/exec',
+  API_URL: 'https://script.google.com/macros/s/AKfycbyCpJxQ6fV_LlLvcr9UAP2lqLWuqF9bw2HBxCtCYqdcWfr1xzKh3uKB-jSK8vtP1KY/exec',
   ADMIN_PASSWORD: 'admin123',
   USE_MOCK: false,
 }

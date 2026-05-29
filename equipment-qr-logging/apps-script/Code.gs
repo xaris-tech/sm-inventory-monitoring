@@ -38,7 +38,16 @@ function getEquipment() {
   const rows = sheet.getDataRange().getValues()
   if (rows.length < 2) return jsonResponse({ equipment: [] })
 
-  const equipment = rows.slice(1).map(r => ({
+  const cleaned = normalizeEquipmentRows(rows)
+  if (cleaned.changed) {
+    sheet.clearContents()
+    sheet.getRange(1, 1, 1, 6).setValues([['item_id', 'item_name', 'type', 'description', 'stock', 'status']])
+    if (cleaned.rows.length) {
+      sheet.getRange(2, 1, cleaned.rows.length, 6).setValues(cleaned.rows)
+    }
+  }
+
+  const equipment = cleaned.rows.map(r => ({
     item_id: r[COL_EQ_ID],
     item_name: r[COL_EQ_NAME],
     type: r[COL_EQ_TYPE] || '',
@@ -152,19 +161,26 @@ function getSpreadsheet() {
 
 function ensureEquipmentSheet(ss) {
   let sheet = ss.getSheetByName(SHEET_EQUIPMENT)
-  if (sheet && isProcessedEquipmentSheet(sheet)) return sheet
+  if (sheet && isProcessedEquipmentSheet(sheet)) {
+    cleanupEquipmentRows(sheet)
+    return sheet
+  }
 
   if (!sheet) {
     sheet = ss.insertSheet(SHEET_EQUIPMENT)
   }
 
   const imported = importMasterList(ss, sheet)
-  if (imported) return sheet
+  if (imported) {
+    cleanupEquipmentRows(sheet)
+    return sheet
+  }
 
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(['item_id', 'item_name', 'type', 'description', 'stock', 'status'])
   }
 
+  cleanupEquipmentRows(sheet)
   return sheet
 }
 
@@ -248,6 +264,82 @@ function isProcessedEquipmentSheet(sheet) {
 
   const headers = sheet.getRange(1, 1, 1, Math.min(lastColumn, 6)).getDisplayValues()[0].map(normalizeHeader)
   return headers[COL_EQ_ID] === 'item_id' && headers[COL_EQ_NAME] === 'item_name'
+}
+
+function cleanupEquipmentRows(sheet) {
+  const rows = sheet.getDataRange().getValues()
+  const cleaned = normalizeEquipmentRows(rows)
+  if (!cleaned.changed) return
+
+  sheet.clearContents()
+  sheet.getRange(1, 1, 1, 6).setValues([['item_id', 'item_name', 'type', 'description', 'stock', 'status']])
+  if (cleaned.rows.length) {
+    sheet.getRange(2, 1, cleaned.rows.length, 6).setValues(cleaned.rows)
+  }
+}
+
+function normalizeEquipmentRows(rows) {
+  if (rows.length < 2) {
+    return { rows: [], changed: false }
+  }
+
+  const seenIds = new Set()
+  const cleanedRows = []
+  let changed = false
+
+  for (let i = 1; i < rows.length; i++) {
+    const rawId = String(rows[i][COL_EQ_ID] || '').trim()
+    const rawName = String(rows[i][COL_EQ_NAME] || '').trim()
+    const rawType = String(rows[i][COL_EQ_TYPE] || '').trim()
+    const rawDesc = String(rows[i][COL_EQ_DESC] || '').trim()
+    const rawStock = rows[i][COL_EQ_STOCK]
+    const rawStatus = String(rows[i][COL_EQ_STATUS] || 'available').trim() || 'available'
+
+    if (!rawId || !rawName) {
+      changed = true
+      continue
+    }
+
+    if (seenIds.has(rawId)) {
+      changed = true
+      continue
+    }
+
+    seenIds.add(rawId)
+    cleanedRows.push([rawId, rawName, rawType, rawDesc, rawStock || 0, rawStatus])
+  }
+
+  cleanedRows.sort((a, b) => compareEquipmentIds(a[COL_EQ_ID], b[COL_EQ_ID]))
+
+  if (rows.length - 1 !== cleanedRows.length) changed = true
+  if (!changed) {
+    for (let i = 0; i < cleanedRows.length; i++) {
+      const original = rows[i + 1]
+      const cleaned = cleanedRows[i]
+      if (
+        String(original[COL_EQ_ID] || '').trim() !== cleaned[COL_EQ_ID] ||
+        String(original[COL_EQ_NAME] || '').trim() !== cleaned[COL_EQ_NAME] ||
+        String(original[COL_EQ_TYPE] || '').trim() !== cleaned[COL_EQ_TYPE] ||
+        String(original[COL_EQ_DESC] || '').trim() !== cleaned[COL_EQ_DESC] ||
+        String(original[COL_EQ_STOCK] || 0) !== String(cleaned[COL_EQ_STOCK]) ||
+        String(original[COL_EQ_STATUS] || 'available').trim() !== cleaned[COL_EQ_STATUS]
+      ) {
+        changed = true
+        break
+      }
+    }
+  }
+
+  return { rows: cleanedRows, changed }
+}
+
+function compareEquipmentIds(a, b) {
+  const matchA = String(a).match(/^EQ-(\d+)$/)
+  const matchB = String(b).match(/^EQ-(\d+)$/)
+  if (matchA && matchB) return Number(matchA[1]) - Number(matchB[1])
+  if (matchA) return -1
+  if (matchB) return 1
+  return String(a).localeCompare(String(b))
 }
 
 function parseQuantity(quantity) {
