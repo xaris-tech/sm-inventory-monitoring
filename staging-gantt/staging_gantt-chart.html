@@ -29,6 +29,21 @@
     flex-wrap: wrap;
     align-items: center;
   }
+  .cell-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border: 1px solid #999;
+    border-radius: 4px;
+    background: #fff;
+  }
+  .cell-tools-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #333;
+    white-space: nowrap;
+  }
   .btn {
     font-family: inherit;
     font-size: 11px;
@@ -50,10 +65,11 @@
     align-items: center;
     gap: 4px;
     font-size: 11px;
+    white-space: nowrap;
   }
   .color-picker-wrap input[type=color] {
-    width: 28px;
-    height: 24px;
+    width: 34px;
+    height: 28px;
     padding: 0;
     border: 1px solid #999;
     border-radius: 3px;
@@ -70,6 +86,11 @@
   }
   body.paint-mode .paint-indicator { border-color: #333; }
   body.paint-mode .color-picker-wrap input[type=color] { outline: 2px solid #333; }
+  .mode-helper {
+    font-size: 10px;
+    color: #666;
+    white-space: nowrap;
+  }
   .gantt-wrap {
     max-width: 1500px;
     margin: 0 auto;
@@ -170,6 +191,8 @@
     body { padding: 8px; font-size: 10px; }
     .controls { gap: 4px; }
     .btn { font-size: 10px; padding: 4px 6px; }
+    .cell-tools { width: 100%; flex-wrap: wrap; }
+    .mode-helper { white-space: normal; }
     .gantt-table th, .gantt-table td { min-width: 28px; height: 24px; font-size: 9px; }
     .gantt-table th[style*="min-width:300px"],
     .gantt-table td[style*="min-width:300px"] { min-width: 120px; }
@@ -230,13 +253,17 @@
   <button class="btn green" onclick="showAddSegModal()">+ Add Seg</button>
   <button class="btn" onclick="showRemoveSegModal()">- Remove Seg</button>
   <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
-  <span class="color-picker-wrap">
-    Plot Chart:
-    <input type="color" id="paint-color" value="#2e7d32" onchange="onPaintColorChange(this.value)" />
-    <span class="paint-indicator" id="paint-dot" style="background:#2e7d32"></span>
-    <button class="btn" id="paint-toggle-btn" onclick="togglePaint()">Off</button>
-    <button class="btn" id="erase-btn" onclick="toggleErase()">Erase</button>
-  </span>
+  <div class="cell-tools" role="group" aria-label="Cell tools">
+    <span class="cell-tools-label">Cell tools</span>
+    <span class="color-picker-wrap" title="Choose paint color">
+      <span>Paint</span>
+      <input type="color" id="paint-color" value="#2e7d32" onchange="onPaintColorChange(this.value)" aria-label="Paint color" />
+      <span class="paint-indicator" id="paint-dot" style="background:#2e7d32"></span>
+    </span>
+    <button class="btn" id="paint-toggle-btn" onclick="togglePaint()" aria-pressed="false">Paint off</button>
+    <button class="btn" id="erase-btn" onclick="toggleErase()" aria-pressed="false">Erase off</button>
+    <span class="mode-helper">Paint: click or hold and sweep. Erase: hold and sweep.</span>
+  </div>
   <span style="margin:0 4px; border-left:1px solid #999; height:20px; display:inline-block;"></span>
   <button class="btn" onclick="exportData()">Export</button>
   <button class="btn" onclick="exportImage()">PNG</button>
@@ -244,7 +271,7 @@
   <button class="btn" onclick="saveToStorage()">Save</button>
   <button class="btn" onclick="loadFromStorage()">Load</button>
   <button class="btn danger" onclick="clearAll()">Clear</button>
-  <span class="hint">| Click cell to type | Paint / Erase | Ctrl+Z/Y | ESC to exit paint</span>
+  <span class="hint">| Click cell to type | Paint = click/hold and sweep | Erase = hold and sweep | Ctrl+Z/Y | ESC to exit paint</span>
 </div>
 
 <div class="gantt-wrap">
@@ -336,6 +363,7 @@ let paintColor = '';
 let isPainting = false;
 let isErasing = false;
 let paintStarted = false;
+let eraseStarted = false;
 let chartTitle = 'Staging Gantt Chart - Revival Pilipinas';
 let modalCallback = null;
 let syncStatus = 'local';
@@ -485,9 +513,10 @@ function renderBody() {
       }
       html += `<td class="task-cell ${color ? 'filled' : ''}" style="${style}" data-ri="${ri}" data-ci="${ci}"
         onmousedown="cellPaintStart(event,${ri},${ci})"
-        onmouseenter="cellPaintDrag(event,${ri},${ci})"
+        onmouseenter="cellPaintEnter(event,${ri},${ci})"
+        onmouseenter="cellEraseEnter(event,${ri},${ci})"
         ontouchstart="cellTouchStart(event,${ri},${ci})"
-        ontouchmove="cellTouchEnter(event,${ri},${ci})"
+        ontouchmove="cellTouchMove(event,${ri},${ci})"
         onclick="cellClick(${ri},${ci})">${esc(text)}</td>`;
     }
     html += '</tr>';
@@ -511,6 +540,7 @@ function renderBreakdown() {
 // ============================================================
 
 function cellClick(ri, ci) {
+  if (isPainting || isErasing) return;
   cellEdit(ri, ci);
 }
 
@@ -579,9 +609,10 @@ function togglePaint() {
     const color = document.getElementById('paint-color').value;
     paintColor = color;
     isPainting = true;
+    paintStarted = false;
     document.body.classList.add('paint-mode');
     btn.textContent = 'On';
-    showToast(`Paint mode — drag over cells to color`);
+    showToast(`Paint mode — click or hold and sweep cells to color`);
   }
   updatePaintUI();
 }
@@ -604,8 +635,9 @@ function toggleErase() {
     stopErase();
   } else {
     isErasing = true;
+    eraseStarted = false;
     document.body.classList.add('erase-mode');
-    showToast('Erase mode — drag over cells to clear');
+    showToast('Erase mode — hold and sweep cells to clear');
   }
   updateEraseUI();
   updatePaintUI();
@@ -613,6 +645,7 @@ function toggleErase() {
 
 function stopErase() {
   isErasing = false;
+  eraseStarted = false;
   document.body.classList.remove('erase-mode');
   updateEraseUI();
 }
@@ -620,14 +653,16 @@ function stopErase() {
 function updatePaintUI() {
   const btn = document.getElementById('paint-toggle-btn');
   if (!btn) return;
-  btn.textContent = isPainting ? 'On' : 'Off';
+  btn.textContent = isPainting ? 'Paint on' : 'Paint off';
+  btn.setAttribute('aria-pressed', String(isPainting));
   btn.className = 'btn' + (isPainting ? ' paint-active' : '');
 }
 
 function updateEraseUI() {
   const btn = document.getElementById('erase-btn');
   if (!btn) return;
-  btn.textContent = isErasing ? 'On' : 'Erase';
+  btn.textContent = isErasing ? 'Erase on' : 'Erase off';
+  btn.setAttribute('aria-pressed', String(isErasing));
   btn.className = 'btn' + (isErasing ? ' erase-active' : '');
 }
 
@@ -635,24 +670,21 @@ function cellPaintStart(e, ri, ci) {
   if (e.button !== 0) return;
   if (!isPainting && !isErasing) return;
   e.preventDefault();
-  paintStarted = false;
-
   if (isErasing) {
-    pushUndo();
-    paintStarted = true;
-    rows[ri].cells[ci] = '';
-    render();
+    beginEraseStroke();
+    eraseCell(ri, ci);
     return;
   }
 
   if (paintColor) {
-    pushUndo();
-    paintStarted = true;
-    const cell = rows[ri].cells[ci];
-    const text = cellText(cell);
-    rows[ri].cells[ci] = text || paintColor ? { t: text, b: paintColor } : '';
-    render();
+    beginPaintStroke();
+    paintCell(ri, ci);
   }
+}
+
+function cellPaintEnter(e, ri, ci) {
+  if (!isPainting || !paintStarted || !(e.buttons & 1)) return;
+  paintCell(ri, ci);
 }
 
 // Touch handlers
@@ -661,43 +693,63 @@ function cellTouchStart(e, ri, ci) {
   cellPaintStart({ button: 0, preventDefault: () => {} }, ri, ci);
 }
 
-function cellTouchEnter(e, ri, ci) {
-  if (!isPainting && !isErasing) return;
-  cellPaintDrag({}, ri, ci);
+function beginPaintStroke() {
+  if (paintStarted) return;
+  paintStarted = true;
+  pushUndo();
 }
 
-function cellPaintDrag(e, ri, ci) {
-  if (isErasing) {
-    if (!paintStarted) { pushUndo(); paintStarted = true; }
-    rows[ri].cells[ci] = '';
-    const td = document.querySelector(`td[data-ri="${ri}"][data-ci="${ci}"]`);
-    if (td) {
-      td.style.background = '';
-      td.style.color = '';
-      td.textContent = '';
-      td.className = 'task-cell';
-    }
-    return;
-  }
-
-  if (!isPainting || !paintColor) return;
-  if (!paintStarted) { pushUndo(); paintStarted = true; }
+function paintCell(ri, ci) {
   const cell = rows[ri].cells[ci];
   const text = cellText(cell);
   rows[ri].cells[ci] = text || paintColor ? { t: text, b: paintColor } : '';
-  const td = document.querySelector(`td[data-ri="${ri}"][data-ci="${ci}"]`);
-  if (td) {
-    td.style.background = paintColor;
-    td.style.color = text ? '#fff' : '';
-    td.className = 'task-cell filled';
+  render();
+  saveToStorage();
+}
+
+function cellTouchMove(e, ri, ci) {
+  if (isPainting && paintStarted) {
+    e.preventDefault();
+    paintCell(ri, ci);
+    return;
   }
+  if (!isErasing || !eraseStarted) return;
+  e.preventDefault();
+  eraseCell(ri, ci);
+}
+
+function cellEraseEnter(e, ri, ci) {
+  if (!isErasing || !eraseStarted) return;
+  eraseCell(ri, ci);
+}
+
+function beginEraseStroke() {
+  if (eraseStarted) return;
+  eraseStarted = true;
+  pushUndo();
+}
+
+function eraseCell(ri, ci) {
+  const cell = rows[ri].cells[ci];
+  if (cellEmpty(cell)) return;
+  rows[ri].cells[ci] = '';
+  render();
+  saveToStorage();
 }
 
 document.addEventListener('mouseup', () => {
-  if (isPainting || isErasing) {
-    paintStarted = false;
-    saveToStorage();
-  }
+  paintStarted = false;
+  eraseStarted = false;
+});
+
+document.addEventListener('mousemove', e => {
+  if (!isErasing || !eraseStarted || !(e.buttons & 1)) return;
+  const td = e.target.closest && e.target.closest('td.task-cell');
+  if (!td) return;
+  const ri = parseInt(td.dataset.ri, 10);
+  const ci = parseInt(td.dataset.ci, 10);
+  if (Number.isNaN(ri) || Number.isNaN(ci)) return;
+  eraseCell(ri, ci);
 });
 
 document.addEventListener('keydown', e => {

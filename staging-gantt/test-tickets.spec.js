@@ -1,6 +1,7 @@
 const { test, expect } = require('@playwright/test');
 
-const URL = 'http://localhost:3000/staging_gantt-chart.html';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3001';
+const URL = `${BASE_URL}/staging_gantt-chart.html`;
 
 async function waitForLoad(page) {
   await page.goto(URL, { waitUntil: 'networkidle' });
@@ -27,38 +28,62 @@ test.describe('I. Core Chart', () => {
   test('2: Paint mode toggle + color painting', async ({ page }) => {
     await waitForLoad(page);
     await page.click('#paint-toggle-btn');
-    await expect(page.locator('#paint-toggle-btn')).toHaveText(/On/);
+    await expect(page.locator('#paint-toggle-btn')).toHaveText(/Paint on/);
     const bodyPaint = await page.evaluate(() => document.body.classList.contains('paint-mode'));
     expect(bodyPaint).toBe(true);
-    // Drag-paint a cell
-    const cell = page.locator('.task-cell').first();
-    const box = await cell.boundingBox();
-    await page.mouse.move(box.x + 5, box.y + 5);
+    const first = page.locator('.task-cell').first();
+    const second = page.locator('.task-cell').nth(1);
+    const firstBox = await first.boundingBox();
+    const secondBox = await second.boundingBox();
+    await page.mouse.move(firstBox.x + 5, firstBox.y + 5);
     await page.mouse.down();
+    await page.mouse.move(secondBox.x + 5, secondBox.y + 5);
     await page.mouse.up();
     await page.waitForTimeout(100);
-    const hasBg = await cell.evaluate(el => el.style.background !== '');
-    expect(hasBg).toBe(true);
+    const firstHasBg = await first.evaluate(el => el.style.background !== '');
+    const secondHasBg = await second.evaluate(el => el.style.background !== '');
+    expect(firstHasBg).toBe(true);
+    expect(secondHasBg).toBe(true);
   });
 
   test('3: Erase mode clears cells', async ({ page }) => {
     await waitForLoad(page);
+    const row = page.locator('#tbody tr').first();
+    const cells = row.locator('.task-cell.filled');
+    const first = cells.nth(0);
+    const second = cells.nth(1);
+    const third = cells.nth(2);
     await page.click('#paint-toggle-btn');
-    const cell = page.locator('.task-cell').first();
-    const box = await cell.boundingBox();
-    await page.mouse.move(box.x + 5, box.y + 5);
+    const firstBox = await first.boundingBox();
+    await page.mouse.move(firstBox.x + 5, firstBox.y + 5);
     await page.mouse.down();
     await page.mouse.up();
     await page.waitForTimeout(100);
-    // Now erase
     await page.click('#erase-btn');
-    await expect(page.locator('#erase-btn')).toHaveText(/On/);
-    await page.mouse.move(box.x + 5, box.y + 5);
+    await expect(page.locator('#erase-btn')).toHaveText(/Erase on/);
+    const secondBox = await second.boundingBox();
+    const thirdBox = await third.boundingBox();
+    await page.mouse.move(firstBox.x + 5, firstBox.y + 5);
     await page.mouse.down();
+    await page.mouse.move(secondBox.x + 5, secondBox.y + 5);
+    await page.mouse.move(thirdBox.x + 5, thirdBox.y + 5);
     await page.mouse.up();
     await page.waitForTimeout(100);
-    const bg = await cell.evaluate(el => el.style.background);
-    expect(bg).toBe('');
+    const checks = await page.evaluate(({ pts }) => pts.map(([x, y]) => {
+      const el = document.elementFromPoint(x, y);
+      return {
+        text: (el?.textContent || '').trim(),
+        bg: el?.style?.background || '',
+      };
+    }), { pts: [
+      [firstBox.x + 5, firstBox.y + 5],
+      [secondBox.x + 5, secondBox.y + 5],
+      [thirdBox.x + 5, thirdBox.y + 5],
+    ] });
+    for (const cell of checks) {
+      expect(cell.bg).not.toBe('');
+      expect(cell.text).toBe('');
+    }
   });
 
   test('4: Segment add modal opens', async ({ page }) => {
@@ -154,7 +179,7 @@ test.describe('II. Multi-User Backend', () => {
   });
 
   test('14: GET /api/data returns JSON', async ({ page }) => {
-    const resp = await page.request.get('http://localhost:3000/api/data');
+    const resp = await page.request.get(`${BASE_URL}/api/data`);
     expect(resp.ok()).toBe(true);
     const data = await resp.json();
     expect(data).toHaveProperty('rows');
@@ -162,7 +187,7 @@ test.describe('II. Multi-User Backend', () => {
   });
 
   test('15: PUT /api/data writes and responds', async ({ page }) => {
-    const resp = await page.request.put('http://localhost:3000/api/data', {
+    const resp = await page.request.put(`${BASE_URL}/api/data`, {
       data: { rows: [{ task: 'T', oic: '', start: '', appearances: '', cells: [] }], segments: { SEG1: { cols: 1, start: '', end: '', label: 'T', color: '#000' } }, chartTitle: 'TEST' }
     });
     expect(resp.ok()).toBe(true);
@@ -172,7 +197,7 @@ test.describe('II. Multi-User Backend', () => {
 
   test('16: Frontend loads from API first', async ({ page }) => {
     // PUT some data, then load page
-    await page.request.put('http://localhost:3000/api/data?chart=test16', {
+    await page.request.put(`${BASE_URL}/api/data?chart=test16`, {
       data: { rows: [{ task: 'API_ROW', oic: '', start: '', appearances: '', cells: [] }], segments: { SEG1: { cols: 1, start: '8AM', end: '9AM', label: 'TEST', color: '#6cb87a' } }, chartTitle: 'API CHART' }
     });
     await page.goto(URL + '?chart=test16');
